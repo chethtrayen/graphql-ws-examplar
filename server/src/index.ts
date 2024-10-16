@@ -7,7 +7,8 @@ import { WebSocketServer } from "ws";
 import { useServer } from "graphql-ws/lib/use/ws";
 import express from "express";
 import cors from "cors";
-import { PubSub } from "graphql-subscriptions";
+import { RedisPubSub } from "graphql-redis-subscriptions";
+import Redis from "ioredis";
 
 // Graphql stuff ---------------------------------------
 const typeDefs = `#graphql
@@ -27,9 +28,19 @@ const typeDefs = `#graphql
 
 // Graphql stuff ---------------------------------------
 
+const options = {
+  host: "127.0.0.1",
+  port: 6379,
+  password: "eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81",
+  messageEventName: "buffer",
+  pmessageEventName: "pBuffer",
+};
 const app = express();
 const httpServer = createServer(app);
-const pubsub = new PubSub();
+const pubsub = new RedisPubSub({
+  publisher: new Redis(options),
+  subscriber: new Redis(options),
+});
 
 let currentNum = 0;
 
@@ -42,7 +53,7 @@ const resolvers = {
 
   Mutation: {
     incrementNumber(_, args) {
-      pubsub.publish("NUMBER_INCREMENTED", { numberIncremented: args.num });
+      pubsub.publish("Test", { numberIncremented: args.num });
       return args.num;
     },
   },
@@ -77,6 +88,11 @@ const server = new ApolloServer({
       },
     },
   ],
+});
+
+pubsub.subscribe("Test", (message) => {
+  console.log(message.test);
+  pubsub.publish("NUMBER_INCREMENTED", { numberIncremented: message });
 });
 
 await server.start();
